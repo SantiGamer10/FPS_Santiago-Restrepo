@@ -1,144 +1,124 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.IO.LowLevel.Unsafe;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
-public class Gun : MonoBehaviour
+public class Gun : Weapon
 {
-    [Header("Gun Parameters")]
-    [Tooltip("Gun damage")]
-    [SerializeField] private int _damage;
-    [Tooltip("Max shoot distance.")]
-    [SerializeField] private int _shootDistance;
-    [Tooltip("What layers are enemies.")]
-    [SerializeField] private LayerMask _enemyMask;
-    [Tooltip("The shoot start point.")]
-    [SerializeField] private Transform _shootPoint;
-    [SerializeField] private FirstPersonController _firstPersonController;
-    [Tooltip("Set if the gun is automatic shoot.")]
-    [SerializeField] private bool _isAutomatic;
-    [Tooltip("Time between shoots in RPM(round per minute).")]
-    [SerializeField] private float _fireRate;
-    [Tooltip("Total ammo.")]
-    [SerializeField] private int _maxAmmo;
-    [Tooltip("The time it takes to reload the gun.")]
-    [SerializeField] private float _timeReload;
-    [SerializeField] private RecoilSO _recoilData;
+    [SerializeField] private int shootDistance;
+    [SerializeField] private LayerMask enemyMask;
+    [SerializeField] private Transform shootPoint;
+    [SerializeField] private FirstPersonController controller;
+    [SerializeField] private bool isAutomatic;
+    [SerializeField] private float fireRate;
+    [SerializeField] private int maxAmmo;
+    [SerializeField] private float timeReload;
 
-    private bool _isPressTrigger;
-    private bool _isShooting = false;
-    private bool _canShoot = true;
-    private bool _isReloaded;
+    [SerializeField] private RecoilSO recoilData;
+    [SerializeField] private GunSlot slot;
 
-    private float _timeBetweenShoot;
-    private int _ammoLeft;
+    private bool isPressTrigger;
+    private bool isShooting = false;
+    private bool canShoot = true;
+    private bool isReloaded;
 
-    public Action shootMoment = delegate { };
+    private float timeBetweenShots;
+    private int ammoLeft;
+
+    [SerializeField] private EmptyAction shootEvent;
     public Action<bool> viewEnemy = delegate { };
-    public Action<int> actualAmmo = delegate { };
-    public Action<int> maxAmmo = delegate { };
+    [SerializeField] private ActionChannel<int> currentAmmoEvent;
+    [SerializeField] private ActionChannel<int> maxAmmoEvent;
+    [SerializeField] private ActionChannel<Transform> shootPointEvent;
+    [SerializeField] private ActionChannel<int> damageValueEvent;
+    [SerializeField] private BoolChanel p_isTriggerEvent;
+    [SerializeField] private EmptyAction p_reloadEvent;
 
-    private void OnEnable()
+    protected override void OnEnable()
     {
-        _firstPersonController.shootEvent += HandleSetPressTrigger;
-        _firstPersonController.reloadEvent += HandleReload;
+        base.OnEnable();
+        if (maxAmmoEvent)
+            maxAmmoEvent.InvokeEvent(maxAmmo);
+
+        if (shootPointEvent)
+            shootPointEvent.InvokeEvent(shootPoint);
+
+        p_isTriggerEvent.Subscribe(HandleSetPressTrigger);
+        p_reloadEvent.Subscribe(HandleReload);
     }
 
-    private void OnDisable()
+    protected override void OnDisable()
     {
-        _firstPersonController.shootEvent -= HandleSetPressTrigger;
-        _firstPersonController.reloadEvent -= HandleReload;
+        base.OnDisable();
+        p_isTriggerEvent.Unsubscribe(HandleSetPressTrigger);
+        p_reloadEvent.Unsubscribe(HandleReload);
     }
 
     private void Awake()
     {
-        if (!_firstPersonController)
-        {
-            Debug.LogError($"{name}: FirstPersonController is null.\nCheck and assigned one.\nDisabled component.");
-            enabled = false;
-            return;
-        }
-        if (_enemyMask.value == 0)
-        {
-            Debug.LogError($"{name}: Select a LayerMask.\nDisabled component.");
-            enabled = false;
-            return;
-        }
-        if (_fireRate <= 0)
-        {
-            Debug.LogError($"{name}: Rate fire cannot be 0 or less.\nCheck and assigned a valid number.\nDisabled component.");
-            enabled = false;
-            return;
-        }
-        if (_maxAmmo <= 0)
-        {
-            Debug.LogError($"{name}: Max Ammo cannot be 0 or less.\nCheck and assigned a valid number.\nDisabled component.");
-            enabled = false;
-            return;
-        }
-        if (_timeReload <= 0)
-        {
-            Debug.LogError($"{name}: TimeReload cannot be 0 or less.\nCheck and assigned a valid number.\nDisabled component.");
-            enabled = false;
-            return;
-        }
+        Validate();
 
-        //This count is to have the time between shots.
-        _timeBetweenShoot = 60 / _fireRate;
+        timeBetweenShots = 60 / fireRate;
 
-        _ammoLeft = _maxAmmo;
+        ammoLeft = maxAmmo;
     }
 
     private void Start()
     {
-        maxAmmo?.Invoke(_maxAmmo);
-        actualAmmo?.Invoke(_ammoLeft);
+        if (maxAmmoEvent)
+            maxAmmoEvent.InvokeEvent(maxAmmo);
+
+        if (currentAmmoEvent)
+            currentAmmoEvent.InvokeEvent(ammoLeft);
     }
 
     private void Update()
     {
-        if (_isPressTrigger && !_isShooting && _canShoot && _ammoLeft > 0 && !_isReloaded)
+        if (isPressTrigger && !isShooting && canShoot && ammoLeft > 0 && !isReloaded)
         {
             StartCoroutine(Shoot());
         }
 
         RaycastHit hit;
 
-        viewEnemy?.Invoke(Physics.Raycast(_shootPoint.position, _shootPoint.forward, out hit, _shootDistance, _enemyMask));
+        viewEnemy?.Invoke(Physics.Raycast(shootPoint.position, shootPoint.forward, out hit, shootDistance, enemyMask));
     }
 
-    private void HandleSetPressTrigger(bool pressTrigger)
+    protected override void HandleSetPressTrigger(bool pressTrigger)
     {
-        _isPressTrigger = pressTrigger;
-        if (!_isAutomatic && !pressTrigger)
+        isPressTrigger = pressTrigger;
+        if (!isAutomatic && !pressTrigger)
         {
-            _canShoot = true;
+            canShoot = true;
         }
     }
 
     private IEnumerator Shoot()
     {
-        _isShooting = true;
-        _canShoot = false;
+        isShooting = true;
+        canShoot = false;
 
-        shootMoment?.Invoke();
+        if (shootEvent)
+            shootEvent.InvokeEvent();
 
-        _ammoLeft--;
+        ammoLeft--;
+        if (currentAmmoEvent)
+            currentAmmoEvent.InvokeEvent(ammoLeft);
 
-        actualAmmo?.Invoke(_ammoLeft);
+        yield return new WaitForSeconds(timeBetweenShots);
 
-        yield return new WaitForSeconds(_timeBetweenShoot);
-
-        if (_isAutomatic)
+        if (isAutomatic)
         {
-            _canShoot = true;
+            canShoot = true;
         }
         else
         {
-            _canShoot = false;
+            canShoot = false;
         }
 
-        _isShooting = false;
+        isShooting = false;
     }
 
     private void HandleReload()
@@ -148,12 +128,60 @@ public class Gun : MonoBehaviour
 
     private IEnumerator Reload()
     {
-        _isReloaded = true;
+        isReloaded = true;
 
-        yield return new WaitForSeconds(_timeReload);
+        yield return new WaitForSeconds(timeReload);
 
-        _ammoLeft = _maxAmmo;
-        actualAmmo?.Invoke(_ammoLeft);
-        _isReloaded = false;
+        ammoLeft = maxAmmo;
+        if (currentAmmoEvent)
+            currentAmmoEvent.InvokeEvent(ammoLeft);
+
+        isReloaded = false;
+    }
+
+    public override void SendWeaponParameters()
+    {
+        if (currentAmmoEvent)
+            currentAmmoEvent.InvokeEvent(ammoLeft);
+        if (maxAmmoEvent)
+            maxAmmoEvent.InvokeEvent(maxAmmo);
+        if (shootPointEvent)
+            shootPointEvent.InvokeEvent(shootPoint);
+        if (damageValueEvent)
+            damageValueEvent.InvokeEvent(p_damage);
+    }
+
+    private void Validate()
+    {
+        if (!controller)
+        {
+            Debug.LogError($"{name}: FirstPersonController is null.\nPlease check and assign one.\nDisabled component.");
+            enabled = false;
+            return;
+        }
+        if (enemyMask.value == 0)
+        {
+            Debug.LogError($"{name}: Select a LayerMask.\nDisabled component.");
+            enabled = false;
+            return;
+        }
+        if (fireRate <= 0)
+        {
+            Debug.LogError($"{name}: Rate fire cannot be 0 or less.\nPlease check and assign a valid number.\nDisabled component.");
+            enabled = false;
+            return;
+        }
+        if (maxAmmo <= 0)
+        {
+            Debug.LogError($"{name}: Max Ammo cannot be 0 or less.\nPlease check and assign a valid number.\nDisabled component.");
+            enabled = false;
+            return;
+        }
+        if (timeReload <= 0)
+        {
+            Debug.LogError($"{name}: TimeReload cannot be 0 or less.\nPlease check and assign a valid number.\nDisabled component.");
+            enabled = false;
+            return;
+        }
     }
 }

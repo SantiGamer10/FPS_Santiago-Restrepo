@@ -6,49 +6,56 @@ using UnityEngine.UI;
 
 public class UIHUD : MonoBehaviour
 {
-    [Header("Parameters")]
-    [SerializeField] private RawImage _crossHair;
-    [SerializeField] private TMP_Text _ammoText;
+    [SerializeField] private TMP_Text ammoText;
+    [SerializeField] private RawImage crossHair;
 
-    [Header("CrossView")]
-    [SerializeField] private Color _viewEnemyColor;
-    [SerializeField] private Color _dontViewEnemyColor;
+    [SerializeField] private Color viewEnemyColor;
+    [SerializeField] private Color dontViewEnemyColor;
 
-    [SerializeField] private Gun _gun;
+    [SerializeField] private Gun gun;
+
+    [SerializeField] private ActionChannel<int> currentAmmoEvent;
+    [SerializeField] private ActionChannel<int> maxAmmoEvent;
 
     private int _maxAmmo = 0;
 
     private void OnEnable()
     {
-        _gun.actualAmmo += HandleChangeAmmo;
-        _gun.maxAmmo += HandleMaxAmmo;
-        _gun.viewEnemy += HandleLookEnemy;
+        if (currentAmmoEvent)
+            currentAmmoEvent.Subscribe(HandleChangeAmmo);
+        if (maxAmmoEvent)
+            maxAmmoEvent.Subscribe(HandleMaxAmmo);
+
+        gun.viewEnemy += HandleLookEnemy;
     }
 
     private void OnDisable()
     {
-        _gun.actualAmmo -= HandleChangeAmmo;
-        _gun.maxAmmo -= HandleMaxAmmo;
-        _gun.viewEnemy -= HandleLookEnemy;
+        if (currentAmmoEvent)
+            currentAmmoEvent.Unsubscribe(HandleChangeAmmo);
+        if (maxAmmoEvent)
+            maxAmmoEvent.Unsubscribe(HandleMaxAmmo);
+
+        gun.viewEnemy += HandleLookEnemy;
     }
 
     private void Awake()
     {
-        if (!_gun)
+        if (!gun)
         {
-            Debug.LogError($"{name}: Gun is null.\nCheck and assigned one.\nDisabled component.");
+            Debug.LogError($"{name}: Gun is null.\nPlease check and assign one.\nDisabled component.");
             enabled = false;
             return;
         }
-        if (_crossHair == null)
+        if (crossHair == null)
         {
-            Debug.LogError($"{name}: CrossHair is null.\nCheck and assigned one.\nDisabled component.");
+            Debug.LogError($"{name}: CrossHair is null.\nPlease check and assign one.\nDisabled component.");
             enabled = false;
             return;
         }
-        if (!_ammoText)
+        if (!ammoText)
         {
-            Debug.LogError($"{name}: AmmoText is null.\nCheck and assigned one.\nDisabled component.");
+            Debug.LogError($"{name}: AmmoText is null.\nPlease check and assign one.\nDisabled component.");
             enabled = false;
             return;
         }
@@ -58,17 +65,17 @@ public class UIHUD : MonoBehaviour
     {
         if (look)
         {
-            _crossHair.color = _viewEnemyColor;
+            crossHair.color = viewEnemyColor;
         }
         else
         {
-            _crossHair.color = _dontViewEnemyColor;
+            crossHair.color = dontViewEnemyColor;
         }
     }
 
     private void HandleChangeAmmo(int actualAmmo)
     {
-        _ammoText.text = $"{actualAmmo} / {_maxAmmo}";
+        ammoText.text = $"{actualAmmo} / {_maxAmmo}";
     }
 
     private void HandleMaxAmmo(int maxAmmo)

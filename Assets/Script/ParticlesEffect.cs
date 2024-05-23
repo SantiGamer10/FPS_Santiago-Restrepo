@@ -4,10 +4,10 @@ using UnityEngine;
 
 public class ParticlesEffect : MonoBehaviour
 {
-    [SerializeField] private ParticleSystem _particleSystem;
+    [SerializeField] private ParticleSystem pSystem;
 
     public void ActiveParticles()
     {
-        _particleSystem.Play();
+        pSystem.Play();
     }
 }

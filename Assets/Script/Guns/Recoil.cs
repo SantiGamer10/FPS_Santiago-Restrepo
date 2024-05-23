@@ -6,30 +6,32 @@ using UnityEngine.Rendering;
 public class Recoil : MonoBehaviour
 {
     [Header("Recoil Parameters")]
-    [SerializeField] private RecoilSO _recoilData;
-    [Header("Managers")]
-    [SerializeField] private Gun _gun;
+    [SerializeField] private RecoilSO recoilData;
+    [Header("Channels")]
+    [SerializeField] private EmptyAction shootMoment;
 
-    [SerializeField] private float _threshold = 0.0001f;
-    //Rotations
-    private Quaternion _currentRotation;
-    private Quaternion _targetRotation;
+    [SerializeField] private float threshold = 0.0001f;
+
+    private Quaternion currentRotation;
+    private Quaternion targetRotation;
 
     private void OnEnable()
     {
-        _gun.shootMoment += HandleShootMoment;
+        if(shootMoment)
+            shootMoment.Subscribe(HandleShootMoment);
     }
 
     private void OnDisable()
     {
-        _gun.shootMoment += HandleShootMoment;
+        if (shootMoment)
+            shootMoment.Unsubscribe(HandleShootMoment);
     }
 
     private void Awake()
     {
-        if (!_recoilData)
+        if (!recoilData)
         {
-            Debug.LogError($"{name}: Data is null.\nCheck and assigned one.\nDisabled component.");
+            Debug.LogError($"{name}: Data is null.\nPlease check and assign one.\nDisabled component.");
             enabled = false;
             return;
         }
@@ -37,22 +39,22 @@ public class Recoil : MonoBehaviour
 
     private void Update()
     {
-        if (Quaternion.Dot(_targetRotation, _targetRotation) < _threshold * _threshold)
+        if (Quaternion.Dot(targetRotation, targetRotation) < threshold * threshold)
         {
-            _targetRotation = Quaternion.Euler(Vector3.one * _threshold);
+            targetRotation = Quaternion.Euler(Vector3.one * threshold);
             return;
         }
-        _targetRotation = Quaternion.Lerp(_targetRotation, Quaternion.identity, _recoilData.returnSpeed * Time.deltaTime);
-        _currentRotation = Quaternion.Slerp(_currentRotation, _targetRotation, _recoilData.snappiness * Time.fixedDeltaTime);
-        transform.localRotation = _currentRotation;
+        targetRotation = Quaternion.Lerp(targetRotation, Quaternion.identity, recoilData.returnSpeed * Time.deltaTime);
+        currentRotation = Quaternion.Slerp(currentRotation, targetRotation, recoilData.snappiness * Time.fixedDeltaTime);
+        transform.localRotation = currentRotation;
     }
 
     private void HandleShootMoment()
     {
         Vector3 rotation = Vector3.zero;
-        rotation.x = _recoilData.recoilX;
-        rotation.y = Random.Range(_recoilData.minRecoilY, _recoilData.maxRecoilY);
-        rotation.z = Random.Range(_recoilData.minRecoilZ, _recoilData.maxRecoilZ);
-        _targetRotation *= Quaternion.Euler(rotation);
+        rotation.x = recoilData.recoilX;
+        rotation.y = Random.Range(recoilData.minRecoilY, recoilData.maxRecoilY);
+        rotation.z = Random.Range(recoilData.minRecoilZ, recoilData.maxRecoilZ);
+        targetRotation *= Quaternion.Euler(rotation);
     }
 }

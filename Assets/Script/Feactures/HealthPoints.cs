@@ -2,22 +2,22 @@ using System.Collections;
 using System.Collections.Generic;
 using System;
 using UnityEngine;
+using System.Xml.Linq;
 
 public class HealthPoints : MonoBehaviour
 {
-    [Tooltip("Health points must be greater than 0.")]
-    [SerializeField] private int _maxHealthPoints;
+    [SerializeField] private int maxHealthPoints;
 
-    private int _currentHP;
+    private int currentHealth;
 
     public Action<float> damagedEvent;
     public Action dead;
 
     private void Awake()
     {
-        if (_maxHealthPoints <= 0)
+        if (maxHealthPoints <= 0)
         {
-            Debug.LogError($"{name}: Health points cannot be 0 or less.\nCheck and assigned another number.\nDisabled component.");
+            Debug.LogError($"{name}: Health points cannot be 0 or less.\nPlease check and assign another number.\nDisabled component.");
             enabled = false;
             return;
         }
@@ -25,42 +25,55 @@ public class HealthPoints : MonoBehaviour
 
     private void Start()
     {
-        _currentHP = _maxHealthPoints;
+        currentHealth = maxHealthPoints;
     }
 
     public void TakeDamage(int damage)
     {
-        _currentHP -= damage;
-        Debug.Log($"{name} was damaged, life: {_currentHP}");
-        if (_currentHP <= 0)
+        currentHealth -= damage;
+        Debug.Log($"{name} was damaged, health: {currentHealth}");
+        if (currentHealth <= 0)
         {
             Dead();
             return;
         }
-        damagedEvent?.Invoke((float)_currentHP / (float)_maxHealthPoints);
+        damagedEvent?.Invoke((float)currentHealth / (float)maxHealthPoints);
 
     }
 
-    [ContextMenu("Take 1 point of damage")]
+    [ContextMenu("Take 1 point of p_damage")]
     private void BasicDamage()
     {
-        _currentHP--;
-        damagedEvent?.Invoke(_currentHP / _maxHealthPoints);
-        if (_currentHP <= 0)
+        currentHealth--;
+        damagedEvent?.Invoke(currentHealth / maxHealthPoints);
+        if (currentHealth <= 0)
         {
             Dead();
         }
     }
 
-    [ContextMenu("Take total damage")]
+    [ContextMenu("Take total p_damage")]
     private void TakeTotalDamage()
     {
-        TakeDamage(_currentHP);
+        TakeDamage(currentHealth);
     }
 
     private void Dead()
     {
         dead?.Invoke();
-        _currentHP = _maxHealthPoints;
+        currentHealth = maxHealthPoints;
     }
+}
+
+public interface IHealth
+{
+    public void TakeDamage(int damage){}
+
+    [ContextMenu("Take 1 point of p_damage")]
+    private void BasicDamage(){}
+
+    [ContextMenu("Take total p_damage")]
+    private void TakeTotalDamage(){}
+
+    private void Dead(){}
 }

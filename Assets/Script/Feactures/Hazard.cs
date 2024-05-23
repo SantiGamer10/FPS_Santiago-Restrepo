@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class Hazard : MonoBehaviour
 {
-    [SerializeField] private int _damage = 10;
+    [SerializeField] private int damage = 10;
 
     private void OnTriggerEnter(Collider col)
     {
@@ -14,7 +14,12 @@ public class Hazard : MonoBehaviour
         if (col.gameObject.TryGetComponent(out hp))
         {
             Debug.Log($"{name} try damaged {col.name}");
-            hp.TakeDamage(_damage);
+            hp.TakeDamage(damage);
         }
     }
+}
+
+public interface IHazard
+{
+    private void DoDamage() { }
 }

@@ -3,15 +3,41 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
-public class Enemy : MonoBehaviour
+public class Enemy : Character
 {
-    [SerializeField] private NavMeshAgent _agent;
-    [SerializeField] private Transform _target;
+    [SerializeField] protected NavMeshAgent p_agent;
+    [SerializeField] protected Transform p_targetGenerator;
+    [SerializeField] protected Canvas p_lifeView;
 
-    public Transform target { set { _target = value; } }
+    [Header("Parameters")]
+    [SerializeField] protected float p_speed = 3;
 
-    private void Update()
+    protected bool p_canMoveToGenerator = true;
+
+    public Transform target { set { p_targetGenerator = value; } }
+
+    protected override void Awake()
     {
-        _agent.SetDestination(_target.transform.position);
+        base.Awake();
+        p_agent.speed = p_speed;
+    }
+
+    protected virtual void Update()
+    {
+        Move();
+    }
+
+    protected virtual void Move()
+    {
+        if (p_canMoveToGenerator)
+            p_agent.SetDestination(p_targetGenerator.transform.position);
+        
+    }
+
+    protected override void HandleDie()
+    {
+        p_agent.speed = 0;
+        p_lifeView.gameObject.SetActive(false);
+        base.HandleDie();
     }
 }

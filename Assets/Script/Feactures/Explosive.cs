@@ -5,28 +5,27 @@ using UnityEngine;
 
 public class Explosive : MonoBehaviour
 {
-    [Header("Managers")]
-    [SerializeField] private HealthPoints _healthPoints;
-    [SerializeField] private ParticlesEffect _particlesEffect;
-    [Header("Parameters")]
+    [SerializeField] private ParticlesEffect pEffect;
+    [SerializeField] private HealthPoints HP;
+
     [SerializeField] private float _radius = 10f;
     [SerializeField] private float _powerExplotion = 10f;
 
     private void OnEnable()
     {
-        _healthPoints.dead += HandleExplotionOnDead;   
+        HP.dead += HandleExplotionOnDead;   
     }
 
     private void OnDisable()
     {
-        _healthPoints.dead -= HandleExplotionOnDead;
+        HP.dead -= HandleExplotionOnDead;
     }
 
     private void Awake()
     {
-        if (!_healthPoints)
+        if (!HP)
         {
-            Debug.LogError($"{name}: Health points is null.\nCheck and assigned one.\nDisabled component.");
+            Debug.LogError($"{name}: Health points is null.\nPlease check and assign one.\nDisabled component.");
             enabled = false;
             return;
         }
@@ -41,7 +40,7 @@ public class Explosive : MonoBehaviour
 
     private void HandleExplotionOnDead()
     {
-        _particlesEffect.ActiveParticles();
+        pEffect.ActiveParticles();
         Vector3 explosionPos = transform.position;
         Collider[] colliders = Physics.OverlapSphere(explosionPos, _radius);
 

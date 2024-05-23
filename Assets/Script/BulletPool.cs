@@ -1,82 +1,85 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Collections;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.Pool;
 
 public class BulletPool : MonoBehaviour
 {
-    [SerializeField] private Gun _gun;
-    [SerializeField] private BulletTrail _bulletPrefab;
-    [SerializeField] private Transform _pointShoot;
-    [SerializeField] private float Speed = 5f;
-    [SerializeField] private bool UseObjectPool = false;
+    [SerializeField] private Bullet bulletPrefab;
+    [SerializeField] private Transform shootPoint;
+    [SerializeField] private float speed = 5f;
+    [SerializeField] private bool debugEnable = false;
 
-    private ObjectPool<BulletTrail> _bulletPool;
+    [SerializeField] private EmptyAction shootMomentEvent;
+    [SerializeField] private ActionChannel<Transform> shootPointEvent;
+
+    private List<Bullet> activeBullets = new();
+    private List<Bullet> poolBullets = new();
 
     private void OnEnable()
     {
-        _gun.shootMoment += HandleShoot;
+        if (shootMomentEvent)
+            shootMomentEvent.Subscribe(HandleShoot);
+
+        if (shootPointEvent)
+            shootPointEvent.Subscribe(HandleSetShootPoint);
     }
 
     private void OnDisable()
     {
-        _gun.shootMoment -= HandleShoot;
-    }
+        if (shootMomentEvent)
+            shootMomentEvent.Unsubscribe(HandleShoot);
 
-    private void Awake()
-    {
-        _bulletPool = new ObjectPool<BulletTrail>(CreatePooledObject, OnTakeFromPool, OnReturnToPool, OnDestroyObject, false, 200, 100_000);
-    }
-
-    private BulletTrail CreatePooledObject()
-    {
-        BulletTrail instance = Instantiate(_bulletPrefab, Vector3.zero, Quaternion.identity);
-        instance.Disable += ReturnObjectToPool;
-        instance.gameObject.SetActive(false);
-
-        return instance;
-    }
-
-    private void ReturnObjectToPool(BulletTrail Instance)
-    {
-        _bulletPool.Release(Instance);
-    }
-
-    private void OnTakeFromPool(BulletTrail Instance)
-    {
-        Instance.gameObject.SetActive(true);
-        SpawnBullet(Instance);
-        Instance.transform.SetParent(transform, true);
-    }
-
-    private void OnReturnToPool(BulletTrail Instance)
-    {
-        Instance.gameObject.SetActive(false);
-    }
-
-    private void OnDestroyObject(BulletTrail Instance)
-    {
-        Destroy(Instance.gameObject);
+        if (shootPointEvent)
+            shootPointEvent.Unsubscribe(HandleSetShootPoint);
     }
 
     private void OnGUI()
     {
-        if (UseObjectPool)
+        if (debugEnable)
         {
-            GUI.Label(new Rect(10, 10, 200, 30), $"Total Pool Size: {_bulletPool.CountAll}");
-            GUI.Label(new Rect(10, 30, 200, 30), $"Active Objects: {_bulletPool.CountActive}");
+            GUI.Label(new Rect(10, 10, 200, 30), $"Total Pool Size: {activeBullets.Count + poolBullets.Count}");
+            GUI.Label(new Rect(10, 30, 200, 30), $"Active Objects: {activeBullets.Count}");
         }
+    }
+
+    private void HandleSetShootPoint(Transform pointShoot)
+    {
+        shootPoint = pointShoot;
     }
 
     private void HandleShoot()
     {
-        _bulletPool.Get();
+        Bullet temp = SelectBullet();
+        temp.transform.position = shootPoint.position;
+
+        if (poolBullets.Contains(temp))
+            poolBullets.Remove(temp);
+
+        activeBullets.Add(temp);
+        temp.Shoot(shootPoint.position, shootPoint.forward, speed);
     }
 
-    private void SpawnBullet(BulletTrail Instance)
+    private Bullet SelectBullet()
     {
-        Instance.transform.position = _pointShoot.transform.position;
+        if (poolBullets.Count == 0)
+        {
+            Bullet temp = Instantiate(bulletPrefab, shootPoint.position, Quaternion.identity);
+            temp.onDisable += HandleDesactiveBullet;
+            return temp;
+        }
 
-        Instance.Shoot(Instance.transform.position, _pointShoot.transform.forward, Speed);
+        return poolBullets[0];
+    }
+
+    private void HandleDesactiveBullet(Bullet bullet)
+    {
+        if (activeBullets.Contains(bullet))
+        {
+            activeBullets.Remove(bullet);
+            poolBullets.Add(bullet);
+        }
     }
 }

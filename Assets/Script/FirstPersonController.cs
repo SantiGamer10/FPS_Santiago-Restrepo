@@ -5,62 +5,75 @@ using UnityEngine.UIElements;
 [RequireComponent(typeof(CharacterController))]
 public class FirstPersonController : MonoBehaviour
 {
-	public Transform look;
+    [SerializeField] private Transform look;
 	[Header("Player Movement")]
-	[Tooltip("Move speed of the character in m/s")]
-	public float moveSpeed = 4.0f;
-	[Tooltip("Sprint speed of the character in m/s")]
-	public float sprintSpeed = 6.0f;
-	[Tooltip("Rotation speed of the character")]
-	public float rotationSpeed = 1.0f;
+	[Tooltip("Move speed of the player in m/s")]
+    [SerializeField] private float moveSpeed = 4.0f;
+	[Tooltip("Sprint speed of the player in m/s")]
+    [SerializeField] private float sprintSpeed = 6.0f;
+	[Tooltip("Rotation speed of the player")]
+    [SerializeField] private float rotationSpeed = 1.0f;
 
 	[Space(10)]
 	[Tooltip("The height the player can jump")]
-	public float jumpHeight = 1.2f;
-	[Tooltip("The character uses its own gravity value. The engine default is -9.81f")]
-	public float gravity = -15.0f;
-	public float terminalVelocity = 53.0f;
+    [SerializeField] private float jumpHeight = 1.2f;
+	[Tooltip("The player uses its own gravity value. The engine default is -9.81f")]
+	[SerializeField] private float gravity = -15.0f;
+    [SerializeField] private float terminalVelocity = 53.0f;
 
 	[Header("Player Grounded")]
-	[Tooltip("If the character is grounded or not. Not part of the CharacterController built in grounded check")]
-	public bool grounded = true;
-	[Tooltip("Offset to mark feet position")]
-	public float groundedOffset = 0.85f;
-	[Tooltip("The radius of the grounded check. Should match the radius of the CharacterController")]
-	public float groundedRadius = 0.5f;
-	[Tooltip("What layers the character uses as ground")]
-	public LayerMask groundLayers;
+	[Tooltip("If the player is isGrounded or not. Not part of the CharacterController built in isGrounded check")]
+    [SerializeField] private bool isGrounded = true;
+    [SerializeField] private float groundedOffset = 0.85f;
+    [SerializeField] private float groundedRadius = 0.5f;
+    [SerializeField] private LayerMask groundLayers;
 
 	[Header("Camera Limits")]
-	public float minCameraAngle = -90F;
-	public float maxCameraAngle = 90F;
+	[SerializeField] private float minCameraAngle = -90F;
+    [SerializeField] private float maxCameraAngle = 90F;
 
-	private CharacterController controller;
+	[Header("Channels")]
+    [SerializeField] private BoolChanel isTriggerEvent;
+    [SerializeField] private Vector2Channel directionEvent;
+    [SerializeField] private Vector2Channel lookEvent;
+    [SerializeField] private EmptyAction jumpEvent;
+    [SerializeField] private BoolChanel sprintEvent;
+    [SerializeField] private EmptyAction reloadEvent;
+    [SerializeField] private EmptyAction interactEvent;
 
-	private Quaternion _characterTargetRot;
-	private Quaternion _cameraTargetRot;
+    private CharacterController controller;
 
-	private float _verticalVelocity;
+	private Quaternion characterTargetRot;
+	private Quaternion cameraTargetRot;
 
-	private bool _sprint;
-	public bool sprint { set { _sprint = value; } }
+	private float verticalVelocity;
+
+	private bool sprint;
 	private bool _jump;
-	public bool jump { set { _jump = value; } }
-
 	private Vector2 _direction;
-	public Vector2 direction{ set { _direction = value; } }
-
 	private Vector2 _lookRotation;
-	public Vector2 lookRotation { set { _lookRotation = value; } }
 
-	public Action<bool> shootEvent;
-	public Action reloadEvent;
+    private void OnEnable()
+    {
+		directionEvent.Subscribe(HandleDirection);
+		lookEvent.Subscribe(HandleLook);
+		jumpEvent.Subscribe(HandleJump);
+		sprintEvent.Subscribe(HandleSprint);
+    }
+
+    private void OnDisable()
+    {
+        directionEvent.Unsubscribe(HandleDirection);
+        lookEvent.Unsubscribe(HandleLook);
+		jumpEvent.Unsubscribe(HandleJump);
+        sprintEvent.Unsubscribe(HandleSprint);
+    }
 
     private void Awake()
     {
 		if (!look)
 		{
-            Debug.LogError($"{name}: Look is null.\nCheck and assigned one.\nDisabled component.");
+            Debug.LogError($"{name}: Look is null.\nPlease check and assign one.\nDisabled component.");
             enabled = false;
             return;
         }
@@ -75,8 +88,8 @@ public class FirstPersonController : MonoBehaviour
     private void Start()
 	{
 		controller = GetComponent<CharacterController>();
-		_characterTargetRot = transform.localRotation;
-		_cameraTargetRot = look.localRotation;
+		characterTargetRot = transform.localRotation;
+		cameraTargetRot = look.localRotation;
 		UnityEngine.Cursor.lockState = CursorLockMode.Locked;
 	}
 
@@ -91,25 +104,22 @@ public class FirstPersonController : MonoBehaviour
 	private void GroundedCheck()
 	{
 		Vector3 spherePosition = new Vector3(transform.position.x, transform.position.y - groundedOffset, transform.position.z);
-		grounded = Physics.CheckSphere(spherePosition, groundedRadius, groundLayers, QueryTriggerInteraction.Ignore);
+		isGrounded = Physics.CheckSphere(spherePosition, groundedRadius, groundLayers, QueryTriggerInteraction.Ignore);
 	}
 
 	private void JumpAndGravity()
 	{
-		if (grounded && _jump)
+		if (isGrounded && _jump)
 		{
-			// the square root of H * -2 * G = how much velocity needed to reach desired height
-			_verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+			verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
 		}
 		else
 		{
-			// if we are not grounded, do not jump
 			_jump = false;
 		}
 
-		// apply gravity over time if under terminal (multiply by delta time twice to linearly speed up over time)
-		if (_verticalVelocity < terminalVelocity)
-			_verticalVelocity += gravity * Time.deltaTime;
+		if (verticalVelocity < terminalVelocity)
+			verticalVelocity += gravity * Time.deltaTime;
 	}
 
     private void Move()
@@ -118,11 +128,9 @@ public class FirstPersonController : MonoBehaviour
 
         moveValue = moveValue.x * transform.right + moveValue.z * transform.forward;
 
-        // set target speed based on move speed, sprint speed and if sprint is pressed
-        float targetSpeed = _sprint ? sprintSpeed : moveSpeed;
+        float targetSpeed = sprint ? sprintSpeed : moveSpeed;
 
-		// move the player
-		controller.Move(moveValue.normalized * (targetSpeed * Time.deltaTime) + new Vector3(0.0f, _verticalVelocity, 0.0f) * Time.deltaTime);
+		controller.Move(moveValue.normalized * (targetSpeed * Time.deltaTime) + new Vector3(0.0f, verticalVelocity, 0.0f) * Time.deltaTime);
 	}
 
 	private void LookRotation()
@@ -130,13 +138,13 @@ public class FirstPersonController : MonoBehaviour
 		float yRot = _lookRotation.x * rotationSpeed;
 		float xRot = _lookRotation.y * rotationSpeed;
 
-		_characterTargetRot *= Quaternion.Euler(0f, yRot, 0f);
-		_cameraTargetRot *= Quaternion.Euler(-xRot, 0f, 0f);
+		characterTargetRot *= Quaternion.Euler(0f, yRot, 0f);
+		cameraTargetRot *= Quaternion.Euler(-xRot, 0f, 0f);
 
-		_cameraTargetRot = ClampRotationAroundXAxis(_cameraTargetRot);
+		cameraTargetRot = ClampRotationAroundXAxis(cameraTargetRot);
 
-		transform.localRotation = _characterTargetRot;
-		look.localRotation = _cameraTargetRot;
+		transform.localRotation = characterTargetRot;
+		look.localRotation = cameraTargetRot;
 	}
 
 	private Quaternion ClampRotationAroundXAxis(Quaternion q)
@@ -152,5 +160,25 @@ public class FirstPersonController : MonoBehaviour
 		q.x = Mathf.Tan(0.5f * Mathf.Deg2Rad * angleX);
 
 		return q;
+	}
+
+	private void HandleJump()
+	{
+		_jump = true;
+	}
+
+	private void HandleDirection(Vector2 dir)
+	{
+		_direction = dir;
+	}
+
+	private void HandleLook(Vector2 dir)
+	{
+		_lookRotation = dir;
+	}
+
+	private void HandleSprint(bool _sprint)
+	{
+		sprint = _sprint;
 	}
 }

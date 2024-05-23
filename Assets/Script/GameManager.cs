@@ -1,50 +1,36 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
-    [SerializeField] private int _waveTime = 10;
-    [SerializeField] private int _enemyPerWave = 10;
+    [SerializeField] private int waveTime = 10;
+    [SerializeField] private int enemyPerWave = 10;
     [SerializeField] private List<Enemy> _enemyListPrefab = new List<Enemy>();
-    [SerializeField] private HealthPoints _hpGenerator;
-    [SerializeField] private Transform _generatorPosition;
-    [SerializeField] private Transform _spawnPosition;
-    [SerializeField] private float _timeBetweenSpawns = 1;
-
-    private List<Enemy> _enemyList = new List<Enemy>();
-    private int _enemiesDie = 0;
+    [SerializeField] private HealthPoints generatorHP;
+    [SerializeField] private Transform generatorPosition;
+    [SerializeField] private List<EnemySpawnerController> spawnList = new List<EnemySpawnerController>();
+    [SerializeField] private float timeBetweenSpawns = 1;
+    [Header("GameOver data")]
+    [SerializeField] private BoolData winData;
+    [SerializeField] private string victorySceneName = "VictoryMenu";
+    private List<Enemy> enemyList = new();
+    private int enemiesDie = 0;
 
     private void OnEnable()
     {
-        _hpGenerator.dead += HandleGeneratorDie;    
+        generatorHP.dead += HandleGeneratorDie;    
     }
 
     private void OnDisable()
     {
-        _hpGenerator.dead -= HandleGeneratorDie;
+        generatorHP.dead -= HandleGeneratorDie;
     }
 
     private void Awake()
     {
-        if (!_generatorPosition)
-        {
-            Debug.LogError($"{name}: Generator position is null\nCheck and assigned one.\nDisabling component.");
-            enabled = false;
-            return;
-        }
-        if (!_hpGenerator)
-        {
-            Debug.LogError($"{name}: Generator life is null\nCheck and assigned one.\nDisabling component.");
-            enabled = false;
-            return;
-        }
-        if (!_spawnPosition)
-        {
-            Debug.LogError($"{name}: Spawn is null\nCheck and assigned one.\nDisabling component.");
-            enabled = false;
-            return;
-        }
+        Validate();
     }
 
     private void Start()
@@ -54,7 +40,7 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator WaveStart()
     {
-        yield return new WaitForSeconds( _waveTime );
+        yield return new WaitForSeconds(waveTime);
         SpawnEnemies();
     }
 
@@ -65,31 +51,71 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator Spawn()
     {
-        for (int i = 0; i < _enemyPerWave; i++)
+        for (int i = 0; i < enemyPerWave; i++)
         {
-            yield return new WaitForSeconds(_timeBetweenSpawns);
-            Enemy enemy = Instantiate(_enemyListPrefab[0],_spawnPosition.transform.position,Quaternion.identity);
-            enemy.target = _generatorPosition;
+            yield return new WaitForSeconds(timeBetweenSpawns);
+            int spawnIndex = RandomIndexSpawn();
+
+            Enemy enemy = spawnList[spawnIndex].SpawnEnemy(generatorPosition);
             if (enemy.TryGetComponent<HealthPoints>(out HealthPoints hp))
             {
                 hp.dead += HandleEnemiesDie;
             }
-            _enemyList.Add(enemy);
+            enemyList.Add(enemy);
         }
     }
 
     private void HandleEnemiesDie()
     {
-        _enemiesDie++;
+        enemiesDie++;
         
-        if (_enemiesDie >= _enemyPerWave)
+        if (enemiesDie >= enemyPerWave)
         {
-            Debug.Log("You win");
+            WinOrLoseLogic(true);
         }
     }
 
     private void HandleGeneratorDie()
     {
-        Debug.Log("Game over!");
+        WinOrLoseLogic(false);
+    }
+
+    private void WinOrLoseLogic(bool isWinning)
+    {
+        winData._boolData = isWinning;
+        SceneManager.LoadScene(victorySceneName);
+    }
+
+    private int RandomIndexSpawn()
+    {
+        return Random.Range(0, spawnList.Count);
+    }
+
+    private void Validate()
+    {
+        if (!generatorPosition)
+        {
+            Debug.LogError($"{name}: Generator position is null\nPlease check and assign one.\nDisabled component.");
+            enabled = false;
+            return;
+        }
+        if (!generatorHP)
+        {
+            Debug.LogError($"{name}: Generator HP is null\nPlease check and assign one.\nDisabled component.");
+            enabled = false;
+            return;
+        }
+        if (spawnList.Count == 0)
+        {
+            Debug.LogError($"{name}: Spawn is null\nPlease check and assign one.\nDisabled component.");
+            enabled = false;
+            return;
+        }
+        if (!winData)
+        {
+            Debug.LogError($"{name}: WinData is null\nPlease check and assign one.\nDisabled component.");
+            enabled = false;
+            return;
+        }
     }
 }

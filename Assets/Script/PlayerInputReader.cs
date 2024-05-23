@@ -5,50 +5,46 @@ using UnityEngine.InputSystem;
 
 public class PlayerInputReader : MonoBehaviour
 {
-    [SerializeField] private FirstPersonController _player;
-
-    private void Awake()
-    {
-        if (!_player)
-        {
-            Debug.LogError($"{name}: FirstPersonController is null.\nCheck and assigned one.\nDisabled component.");
-            enabled = false;
-            return;
-        }
-    }
+    [SerializeField] private BoolChanel isTriggerEvent;
+    [SerializeField] private Vector2Channel directionEvent;
+    [SerializeField] private Vector2Channel lookEvent;
+    [SerializeField] private EmptyAction jumpEvent;
+    [SerializeField] private BoolChanel sprintEvent;
+    [SerializeField] private EmptyAction reloadEvent;
+    [SerializeField] private EmptyAction interactEvent;
 
     public void SetMoveValue(InputAction.CallbackContext inputContext)
     {
-        _player.direction = inputContext.ReadValue<Vector2>();
+        directionEvent.InvokeEvent(inputContext.ReadValue<Vector2>());
     }
 
     public void SetJump(InputAction.CallbackContext inputContext)
     {
-        _player.jump = true;
+        jumpEvent.InvokeEvent();
     }
 
     public void SetLook(InputAction.CallbackContext inputContext)
     {
-        _player.lookRotation = inputContext.ReadValue<Vector2>();
+        lookEvent.InvokeEvent(inputContext.ReadValue<Vector2>());
     }
 
     public void SetSprint(InputAction.CallbackContext inputContext)
     {
-        _player.sprint = inputContext.ReadValueAsButton();
+        sprintEvent.InvokeEvent(inputContext.ReadValueAsButton());
     }
 
     public void SetShoot(InputAction.CallbackContext inputContext)
     {
-        _player.shootEvent?.Invoke(inputContext.ReadValueAsButton());
+        isTriggerEvent.InvokeEvent(inputContext.ReadValueAsButton());
     }
 
     public void SetReload(InputAction.CallbackContext inputContext)
     {
-        _player.reloadEvent?.Invoke();
+        reloadEvent.InvokeEvent();
     }
 
-    public void SetPickUp(InputAction.CallbackContext inputContext)
+    public void SetInteract(InputAction.CallbackContext inputContext)
     {
-
+        interactEvent.InvokeEvent();
     }
 }

@@ -5,30 +5,30 @@ using UnityEngine.UI;
 
 public class UiHealth : MonoBehaviour
 {
-    [SerializeField] private Image _maxHP;
-    [SerializeField] private HealthPoints _healthPoints;
+    [SerializeField] private Image maxHP;
+    [SerializeField] private HealthPoints healthPoints;
 
     private void OnEnable()
     {
-        _healthPoints.damagedEvent += HandleChangeHealth;
+        healthPoints.damagedEvent += HandleChangeHealth;
     }
 
     private void OnDisable()
     {
-        _healthPoints.damagedEvent -= HandleChangeHealth;
+        healthPoints.damagedEvent -= HandleChangeHealth;
     }
 
     private void Awake()
     {
-        if (_healthPoints == null)
+        if (healthPoints == null)
         {
-            Debug.LogError($"{name}: HealthPoints is null.\nCheck and assigned one.\nDisabled component.");
+            Debug.LogError($"{name}: HealthPoints is null.\nPlease check and assign one.\nDisabled component.");
             enabled = false;
             return;
         }
-        if (_maxHP == null)
+        if (maxHP == null)
         {
-            Debug.LogError($"{name}: MaxHP is null.\nCheck and assigned one.\nDisabled component.");
+            Debug.LogError($"{name}: MaxHP is null.\nPlease check and assign one.\nDisabled component.");
             enabled = false;
             return;
         }
@@ -36,6 +36,6 @@ public class UiHealth : MonoBehaviour
 
     private void HandleChangeHealth(float health)
     {
-        _maxHP.fillAmount = health;
+        maxHP.fillAmount = health;
     }
 }

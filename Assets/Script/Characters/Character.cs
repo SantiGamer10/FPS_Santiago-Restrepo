@@ -1,28 +1,31 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using static UnityEditor.Experimental.GraphView.GraphView;
 
 public class Character : MonoBehaviour
 {
-    [SerializeField] protected HealthPoints p_healthPoints;
-    [SerializeField] protected float p_waitForDie;
+    [SerializeField] protected HealthPoints healthPoints;
+    [SerializeField] protected float waitForDie;
+
+    public event Action<bool> onDie = delegate { };
+
 
     protected virtual void OnEnable()
     {
-        p_healthPoints.dead += HandleDie;
+        healthPoints.dead += HandleDie;
     }
 
     protected virtual void OnDisable()
     {
-        p_healthPoints.dead -= HandleDie;
+        healthPoints.dead -= HandleDie;
     }
 
     protected virtual void Awake()
     {
-        if (!p_healthPoints)
+        if (!healthPoints)
         {
-            Debug.LogError($"{name}: HealthPoints is null.\nCheck and assigned one.\nDisabled component.");
+            Debug.LogError($"{name}: HealthPoints is null.\nPlease check and assign one.\nDisabled component.");
             enabled = false;
             return;
         }
@@ -30,12 +33,14 @@ public class Character : MonoBehaviour
 
     protected virtual void HandleDie()
     {
-        StartCoroutine(DieLogic());
+        StartCoroutine(Die());
     }
 
-    private IEnumerator DieLogic()
+    private IEnumerator Die()
     {
-        yield return new WaitForSeconds(p_waitForDie);
+        onDie?.Invoke(true);
+        yield return new WaitForSeconds(waitForDie);
         gameObject.SetActive(false);
+        onDie?.Invoke(false);
     }
 }
